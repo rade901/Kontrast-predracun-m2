@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kontrast predračun</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @media print {
+            body, html {
+                width: 210mm;
+                height: 297mm;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            .invoice-box {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            .no-print, form, h1 {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Kontrast Predračun</h1>
+        <form id="billForm">
+            <div class="form-group">
+                <label for="name">Ime:</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="lastname">Prezime:</label>
+                <input type="text" class="form-control" id="lastname" name="lastname" required>
+            </div>
+            <div id="services">
+                <div class="service form-group">
+                    <label for="usluga">Usluga:</label>
+                    <input type="text" class="form-control" name="usluga" required>
+                    <label for="m2" class="mt-2">Kvadratura (m²):</label>
+                    <input type="number" class="form-control" name="m2" step="0.01" required>
+                    <label for="price" class="mt-2">Cijena po m²:</label>
+                    <input type="number" class="form-control" name="price" step="0.01" required>
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary mt-3" onclick="addService()">Dodaj uslugu</button>
+            <div class="form-group mt-3">
+                <label for="discount">Popust (%):</label>
+                <input type="number" class="form-control" id="discount" name="discount" step="0.01" value="0">
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Generiraj predračun</button>
+        </form>
+
+        <div id="bill" class="invoice-box mt-5" style="display:none;">
+            <table>
+                <tr class="top">
+                    <td colspan="2">
+                        <table>
+                            <tr>
+                                <td class="title">
+                                    <img src="logo.png" alt="Company logo" style="width: 100%; max-width: 300px" crossorigin="anonymous" />
+                                </td>
+                                <td id="invoiceDates">
+                                    Invoice #: 123<br />
+                                    Kreirano: <span id="createdDate"></span><br />
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr class="information">
+                    <td colspan="2">
+                        <table>
+                            <tr>
+                                <td>
+                                    Kontrast.<br />
+                                    Vukovar Zrmanjska 27<br />
+                                    Goran Skakić<br />
+                                    skakicgoran@gmail.com
+                                </td>
+                                <td>
+                                    <p id="billNameandLastname"></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr class="heading">
+                    <td>Način plaćanja</td>
+                    <td>#</td>
+                </tr>
+                <tr class="details">
+                    <td>Virman plaćanje po ponudi: 50% avans na početku dogovorenog posla 50% po završetku</td>
+                </tr>
+                <tr class="heading">
+                    <td>Usluga</td>
+                    <td>Cijena</td>
+                </tr>
+                <tr class="item">
+                    <td id="billServices"></td>
+                    <td id="billPrice"></td>
+                </tr>
+                <tr class="total">
+                    <td></td>
+                    <td>Ukupno: <span id="totalPrice"></span></td>
+                </tr>
+                <tr class="total">
+                    <td></td>
+                    <td>Popust: <span id="discountAmount"></span></td>
+                </tr>
+                <tr class="total">
+                    <td></td>
+                    <td>Ukupno nakon popusta: <span id="finalPrice"></span></td>
+                </tr>
+            </table>
+            <button class="btn btn-primary mt-3 no-print" onclick="downloadPDF()">Preuzmi PDF</button>
+        </div>
+
+        <div id="bill" class="mt-5" style="display:none;">
+            <h1>Predračun</h1>
+            <!--logo -->
+            <img src="logo.png" alt="Kontrast logo" style="width: 100px;" crossorigin="anonymous">
+            <hr>
+            <h3>Detalji</h3>
+            <hr>
+            <p id="billName"></p>
+            <p id="billLastname"></p>
+            <hr>
+            <h3>Usluge</h3>
+            <hr>
+            <div id="billServices"></div>
+            <button class="btn btn-primary mt-3 no-print" onclick="downloadPDF()">Preuzmi PDF</button>
+        </div>
+    </div>
+
+    <script>
+        function addService() {
+            const serviceDiv = document.createElement('div');
+            serviceDiv.classList.add('service', 'form-group');
+            serviceDiv.innerHTML = `
+                <label for="usluga">Usluga:</label>
+                <input type="text" class="form-control" name="usluga" required>
+                <label for="m2" class="mt-2">Kvadratura (m²):</label>
+                <input type="number" class="form-control" name="m2" step="0.01" required>
+                <label for="price" class="mt-2">Cijena po m²:</label>
+                <input type="number" class="form-control" name="price" step="0.01" required>
+            `;
+            document.getElementById('services').appendChild(serviceDiv);
+        }
+
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+        }
+
+        function formatDate(date) {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return date.toLocaleDateString('en-US', options);
+        }
+
+        document.getElementById('billForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const name = capitalizeFirstLetter(document.getElementById('name').value);
+            const lastname = capitalizeFirstLetter(document.getElementById('lastname').value);
+            const services = document.querySelectorAll('.service');
+            const billServices = document.getElementById('billServices');
+            const billPrice = document.getElementById('billPrice');
+            const discount = parseFloat(document.getElementById('discount').value) || 0;
+            billServices.innerHTML = '';
+            billPrice.innerHTML = '';
+
+            document.getElementById('billName').innerText = 'Ime: ' + name;
+            document.getElementById('billLastname').innerText = 'Prezime: ' + lastname;
+            document.getElementById('billNameandLastname').innerText = name + ' ' + lastname;
+
+            let totalPrice = 0;
+            services.forEach((service, index) => {
+                const usluga = service.querySelector('input[name="usluga"]').value;
+                const m2 = parseFloat(service.querySelector('input[name="m2"]').value);
+                const pricePerM2 = parseFloat(service.querySelector('input[name="price"]').value);
+                const price = m2 * pricePerM2;
+
+                const serviceDetail = document.createElement('p');
+                serviceDetail.innerText = `${index + 1}: ${usluga} (${m2} m²)`;
+                billServices.appendChild(serviceDetail);
+
+                const priceDetail = document.createElement('p');
+                priceDetail.innerText = `€${price.toFixed(2)}`;
+                billPrice.appendChild(priceDetail);
+
+                totalPrice += price;
+            });
+
+            const discountAmount = (totalPrice * discount) / 100;
+            const finalPrice = totalPrice - discountAmount;
+
+            const createdDate = new Date();
+
+            document.getElementById('createdDate').innerText = formatDate(createdDate);
+            document.getElementById('totalPrice').innerText = `€${totalPrice.toFixed(2)}`;
+            document.getElementById('discountAmount').innerText = `€${discountAmount.toFixed(2)}`;
+            document.getElementById('finalPrice').innerText = `€${finalPrice.toFixed(2)}`;
+            document.getElementById('bill').style.display = 'block';
+        });
+
+        async function downloadPDF() {
+            const { jsPDF } = window.jspdf;
+            const bill = document.getElementById('bill');
+            const printButtons = document.querySelectorAll('.no-print');
+            printButtons.forEach(button => button.style.display = 'none');
+            html2canvas(bill, { useCORS: true }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210;
+                const pageHeight = 297;
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+                pdf.save('predracun.pdf');
+                printButtons.forEach(button => button.style.display = 'block');
+            });
+        }
+    </script>
+</body>
+</html>
